@@ -360,6 +360,12 @@ impl Debug for HGVSName {
     }
 }
 
+impl Display for HGVSName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.format(None, None))
+    }
+}
+
 impl HGVSName {
     pub fn new_from_name(name: String) -> Result<Self, HGVSNameError> {
         let mut res = Self {
@@ -770,35 +776,148 @@ impl HGVSName {
         }
     }
 
+    /// Generate HGVS trancript/gene prefix.
+    ///
+    ///     Some examples of full hgvs names with transcript include:
+    ///       NM_007294.3:c.2207A>C
+    ///       NM_007294.3(BRCA1):c.2207A>C
     fn format_prefix(&self, use_gene: bool) -> String {
-        "".to_string()
+        match self.kind.as_str() {
+            "g" | "m" => {
+                if self.chrom.is_empty().not() {
+                    return self.chrom.to_string();
+                }
+            }
+            _ => {}
+        }
+        if self.transcript.is_empty().not() {
+            if use_gene && self.gene.is_empty().not() {
+                return format!("{}({})", &self.transcript, &self.gene);
+            } else {
+                return self.transcript.to_string();
+            }
+        } else {
+            if use_gene {
+                return self.gene.to_string();
+            } else {
+                return "".to_string();
+            }
+        }
     }
 
+    /// Generate HGVS cDNA coordinates string.
     fn format_cdna_coords(&self) -> String {
-        "".to_string()
+        match (&self.cdna_start, &self.cdna_end) {
+            (Some(cdna_start), Some(cdna_end)) => {
+                if cdna_start == cdna_end {
+                    cdna_start.to_string()
+                } else {
+                    format!("{}_{}", cdna_start, cdna_end)
+                }
+            }
+            _ => "".to_string(),
+        }
     }
 
+    /// Generate HGVS DNA allele.
     fn format_dna_allele(&self) -> String {
-        "".to_string()
+        if let Some(ref mut_type) = self.mutation_type {
+            match mut_type.as_str() {
+                "=" => {
+                    format!("{}=", self.ref_allele)
+                }
+                ">" => {
+                    format!("{}>{}", self.ref_allele, self.alt_allele)
+                }
+                "delins" => {
+                    format!("del{}ins{}", self.ref_allele, self.alt_allele)
+                }
+                "del" | "dup" => {
+                    format!("{}{}", mut_type, self.ref_allele)
+                }
+                "ins" => {
+                    format!("{}{}", mut_type, self.alt_allele)
+                }
+                "inv" => mut_type.to_string(),
+                _ => "".to_string(), //TODO: Should raise!
+            }
+        } else {
+            //TODO: Should raise too!
+            "".to_string()
+        }
     }
 
+    /// Generate HGVS cDNA allele.
+    ///
+    ///     Some examples include:
+    ///       Substitution: 101A>C,
+    ///       Indel: 3428delCinsTA, 1000_1003delATG, 1000_1001insATG
     fn format_cdna(&self) -> String {
-        "".to_string()
+        format!("{}{}", self.format_cdna_coords(), self.format_dna_allele())
     }
 
+    /// Generate HGVS protein name.
+    ///
+    ///     Some examples include:
+    ///       No change: Glu1161=
+    ///       Change: Glu1161Ser
+    ///       Frameshift: Glu1161_Ser1164?fs
     fn format_protein(&self) -> String {
+        if self.start == self.end {
+            if self.ref_allele == self.ref2_allele && self.ref_allele == self.alt_allele {
+                return format!(
+                    "{}{}{}",
+                    self.ref_allele,
+                    self.start,
+                    if self.pep_extra.is_empty().not() {
+                        &self.pep_extra
+                    } else {
+                        "="
+                    }
+                );
+            }
+            if self.ref_allele == self.ref2_allele && self.ref_allele != self.alt_allele {
+                return format!(
+                    "{}{}{}{}",
+                    self.ref_allele, self.start, self.alt_allele, self.pep_extra
+                );
+            }
+        } else {
+            return format!(
+                "{}{}_{}{}{}",
+                self.ref_allele, self.start, self.ref2_allele, self.end, self.pep_extra
+            );
+        }
         "".to_string()
     }
 
+    /// Generate HGVS cDNA coordinates string.
     fn format_coords(&self) -> String {
-        "".to_string()
+        if self.start == self.end {
+            self.start.to_string()
+        } else {
+            format!("{}_{}", self.start, self.end)
+        }
     }
 
+    /// Generate HGVS genomic allele.
+    ///
+    ///     Som examples include:
+    ///       Substitution: 1000100A>T
+    ///       Indel: 1000100_1000102delATG
     fn format_genome(&self) -> String {
-        "".to_string()
+        format!("{}{}", self.format_coords(), self.format_dna_allele())
     }
 
     fn get_raw_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
+        todo!()
+    }
+
+    fn get_ref_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
+        todo!()
+    }
+
+    fn get_vcf_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
         todo!()
     }
 }

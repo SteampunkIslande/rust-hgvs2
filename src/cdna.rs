@@ -43,7 +43,7 @@ pub enum CDNAError {
 /// -N+M / -N-M = nucleotide in an intron in the 5'UTR (e.g. -45+4A>G)
 ///
 /// *N+M / *N-M = nucleotide in an intron in the 3'UTR (e.g. *212-2A>G)
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub struct CDNACoord {
     pub coord: i64,
     pub offset: i64,
