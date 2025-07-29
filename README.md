@@ -1,0 +1,1 @@
+This project is an attempt at rewriting [pyhgvs2](https://github.com/SACGF/hgvs/tree/master) in Rust.
