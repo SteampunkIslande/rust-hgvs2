@@ -45,9 +45,9 @@ pub enum CDNAError {
 /// *N+M / *N-M = nucleotide in an intron in the 3'UTR (e.g. *212-2A>G)
 #[derive(Default)]
 pub struct CDNACoord {
-    coord: i64,
-    offset: i64,
-    landmark: Landmark,
+    pub coord: i64,
+    pub offset: i64,
+    pub landmark: Landmark,
 }
 
 #[derive(Default, Debug, PartialEq, Display)]

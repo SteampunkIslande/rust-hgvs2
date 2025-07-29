@@ -102,12 +102,15 @@
 /// let BASES: &'static str = BASE+
 */
 
-use std::fmt::Display;
-use thiserror::Error;
+use lazy_regex::lazy_regex;
+use std::{fmt::Display, ops::Not, str::FromStr};
 
-use crate::cdna::CDNACoord;
+use crate::{
+    cdna::{CDNACoord, CDNAError, Landmark},
+    hgvs_name::refseq_prefixes::get_refseq_type,
+};
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub struct InvalidHGVSName {
     name: Option<String>,
     part: String,
@@ -126,10 +129,30 @@ impl Display for InvalidHGVSName {
     }
 }
 
-#[derive(Error, Debug)]
+impl InvalidHGVSName {
+    pub fn with_reason(reason: &str) -> Self {
+        Self {
+            name: None,
+            part: "".to_string(),
+            reason: reason.to_string(),
+        }
+    }
+    pub fn new(name: Option<&str>, part: &str, reason: &str) -> Self {
+        Self {
+            name: name.map(String::from),
+            part: part.to_string(),
+            reason: reason.to_string(),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum HGVSNameError {
-    #[error("{0}")]
-    InvalidHGVSName(InvalidHGVSName),
+    #[error(transparent)]
+    InvalidHGVSNameError(#[from] InvalidHGVSName),
+
+    #[error(transparent)]
+    CDNAError(#[from] CDNAError),
 }
 
 pub mod hgvs_regex {
@@ -137,7 +160,7 @@ pub mod hgvs_regex {
     use lazy_regex::regex;
     use lazy_regex::regex::Regex;
 
-    static CDNA_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
+    pub static CDNA_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
         regex!(
             r"^(?P<start>(?P<start_coord_prefix>|-|\*)(?P<start_coord>\d+)((?P<start_offset_prefix>-|\+)(?P<start_offset>\d+))?)(?P<mutation_type>=)$"
         ),
@@ -191,7 +214,7 @@ pub mod hgvs_regex {
         ),
     ];
 
-    static PEP_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
+    pub static PEP_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
         regex!(r"^(?P<ref>([A-Z]([a-z]{2}))+)(?P<start>\d+)(?P<extra>(|=|\?)(|fs))$"),
         regex!(
             r"^(?P<ref>([A-Z]([a-z]{2}))+)(?P<start>\d+)(?P<alt>([A-Z]([a-z]{2}))+)(?P<extra>(|=|\?)(|fs))$"
@@ -204,7 +227,7 @@ pub mod hgvs_regex {
         ),
     ];
 
-    static GENOMIC_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
+    pub static GENOMIC_ALLELE_REGEXES: &'static [&lazy_regex::Lazy<Regex>] = &[
         regex!(r"^(?P<start>\d+)(?P<mutation_type>=)$"),
         regex!(
             r"^(?P<start>\d+)(?P<ref>[acgtbdhkmnrsvwyACGTBDHKMNRSVWY]+|\d+)(?P<mutation_type>=)$"
@@ -316,29 +339,233 @@ pub struct HGVSName {
     transcript: String,
     gene: String,
     kind: String,
-    mutation_type: String,
+    mutation_type: Option<String>,
     start: i64,
     end: i64,
     ref_allele: String,
     ref2_allele: String,
     alt_allele: String,
-    cdna_start: CDNACoord,
-    cdna_end: CDNACoord,
+    cdna_start: Option<CDNACoord>,
+    cdna_end: Option<CDNACoord>,
     pep_extra: String,
 }
 
 impl HGVSName {
-    pub fn new(name: String) -> Self {
+    pub fn new_from_name(name: String) -> Result<Self, HGVSNameError> {
         let mut res = Self {
             name,
             ..Default::default()
         };
 
         if res.name.len() > 0 {
-            res.parse();
+            res = res.parse()?;
         }
-        res
+        Ok(res)
     }
 
-    fn parse(&mut self) {}
+    fn parse(self) -> Result<Self, HGVSNameError> {
+        // Extract the data we need into owned strings to avoid borrowing issues
+        let (prefix, allele) = if let Some((p, a)) = self.name.split_once(':') {
+            (p.to_string(), a.to_string())
+        } else {
+            (String::new(), self.name.clone())
+        };
+
+        self.parse_prefix(&prefix).parse_allele(&allele)?.validate()
+    }
+
+    /// Parse a HGVS prefix (gene/transcript/chromosome).
+    ///
+    /// Some examples of full hgvs names with transcript include:
+    ///     NM_007294.3:c.2207A>C
+    ///     NM_007294.3(BRCA1):c.2207A>C
+    ///     BRCA1{NM_007294.3}:c.2207A>C
+    fn parse_prefix(mut self, prefix: &str) -> Self {
+        self.prefix = prefix.to_string();
+        if self.prefix.is_empty() {
+            return self;
+        }
+
+        // Transcript and gene given with parens.
+        // example: NM_007294.3(BRCA1):c.2207A>C
+        let reg_captures =
+            lazy_regex!(r"^(?P<transcript>[^(]+)\((?P<gene>[^)]+)\)$").captures(&self.prefix);
+        if let Some(reg_matches) = reg_captures {
+            self.transcript = reg_matches
+                .name("transcript")
+                .map(|o| o.as_str().to_string())
+                .unwrap_or_default();
+            self.gene = reg_matches
+                .name("gene")
+                .map(|o| o.as_str().to_string())
+                .unwrap_or_default();
+            return self;
+        }
+
+        // Transcript and gene given with braces.
+        // example: BRCA1{NM_007294.3}:c.2207A>C
+        let reg_captures =
+            lazy_regex!(r"^(?P<gene>[^{]+)\{(?P<transcript>[^}]+)\}$").captures(&self.prefix);
+        if let Some(reg_matches) = reg_captures {
+            self.transcript = reg_matches
+                .name("transcript")
+                .map(|o| o.as_str().to_string())
+                .unwrap_or_default();
+            self.gene = reg_matches
+                .name("gene")
+                .map(|o| o.as_str().to_string())
+                .unwrap_or_default();
+            return self;
+        }
+        // Determine using Ensembl type.
+        if prefix.starts_with("ENST") {
+            self.transcript = prefix.to_string();
+            return self;
+        }
+        // Determine using LRG type.
+        if prefix.starts_with("LRG_") {
+            self.transcript = prefix.to_string();
+            return self;
+        }
+
+        // Determine using refseq type
+        if let Some(refseq_type) = get_refseq_type(prefix) {
+            match refseq_type {
+                "mRNA" | "RNA" => {
+                    self.transcript = prefix.to_string();
+                    return self;
+                }
+                "genomic" => {
+                    self.chrom = prefix.to_string();
+                    return self;
+                }
+                _ => {}
+            }
+        }
+
+        // Assume chrom
+        if prefix.starts_with("chr") {
+            self.chrom = prefix.to_string();
+            return self;
+        }
+
+        // Assume gene name
+        self.gene = prefix.to_string();
+
+        self
+    }
+
+    /// Parse a HGVS allele description.
+
+    ///    Some examples include:
+    ///      cDNA substitution: c.101A>C,
+    ///      cDNA indel: c.3428delCinsTA, c.1000_1003delATG, c.1000_1001insATG
+    ///      No protein change: p.Glu1161=
+    ///      Protein change: p.Glu1161Ser
+    ///      Protein frameshift: p.Glu1161_Ser1164?fs
+    ///      Genomic substitution: g.1000100A>T
+    ///      Genomic indel: g.1000100_1000102delATG
+    fn parse_allele(mut self, allele: &str) -> Result<Self, HGVSNameError> {
+        if allele.contains(".").not() {
+            return Err(InvalidHGVSName::new(
+                Some(allele),
+                "allele",
+                "expected kind \"c.\",\"p.\",\"g.\", etc",
+            )
+            .into());
+        }
+        let (kind, details) = if let Some((kind, details)) = allele.split_once(".") {
+            self.kind = kind.to_string();
+            self.mutation_type = None;
+            (kind, details)
+        } else {
+            (allele, "")
+        };
+        match kind {
+            "c" | "n" => {
+                self = self.parse_cdna(details)?;
+                if kind == "n" {
+                    if self.cdna_start.as_ref().is_some_and(|o| o.coord < 0) {
+                        return Err(InvalidHGVSName::new(
+                            Some(allele),
+                            "allele",
+                            "Non-coding transcript cannot contain negative (5'UTR) coordinates",
+                        )
+                        .into());
+                    }
+                    if self
+                        .cdna_start
+                        .as_ref()
+                        .is_some_and(|o| o.landmark == Landmark::CdnaStopCodon)
+                        || self
+                            .cdna_end
+                            .as_ref()
+                            .is_some_and(|o| o.landmark == Landmark::CdnaStopCodon)
+                    {
+                        return Err(InvalidHGVSName::new(
+                            Some(allele),
+                            "allele",
+                            "Non-coding transcript cannot contain '*' (3'UTR) coordinate",
+                        )
+                        .into());
+                    }
+                }
+            }
+            "p" => {
+                self = self.parse_protein(&details)?;
+            }
+            "g" | "m" => {
+                self = self.parse_genome(&details)?;
+            }
+            _ => {
+                return Err(
+                    InvalidHGVSName::with_reason(&format!("unknown kind: {}", allele)).into(),
+                );
+            }
+        }
+        Ok(self)
+    }
+
+    fn parse_cdna(mut self, details: &str) -> Result<Self, HGVSNameError> {
+        for regex in hgvs_regex::CDNA_ALLELE_REGEXES {
+            if let Some(groups) = regex.captures(details) {
+                if groups.name("delins").is_some() {
+                    self.mutation_type = Some("delins".to_string());
+                } else {
+                    self.mutation_type =
+                        groups.name("mutation_type").map(|o| o.as_str().to_string());
+                }
+
+                let start_val = groups.name("start").map(|o| o.as_str()).ok_or(
+                    InvalidHGVSName::with_reason(
+                        "Ill-formed regular expression doesn't contain group `start`",
+                    ),
+                )?;
+
+                self.cdna_start = CDNACoord::from_str(start_val).ok();
+                self.cdna_end = if let Some(cdna_end) = groups.name("end").map(|o| o.as_str()) {
+                    Some(CDNACoord::from_str(cdna_end)?)
+                } else {
+                    Some(CDNACoord::from_str(start_val)?)
+                };
+            }
+        }
+        Ok(self)
+    }
+
+    fn parse_protein(mut self, details: &str) -> Result<Self, HGVSNameError> {
+        Ok(self)
+    }
+
+    fn parse_genome(mut self, details: &str) -> Result<Self, HGVSNameError> {
+        Ok(self)
+    }
+
+    fn validate(self) -> Result<Self, HGVSNameError> {
+        if self.start > self.end {
+            Err(InvalidHGVSName::with_reason("Coordinates are nonincreasing").into())
+        } else {
+            Ok(self)
+        }
+    }
 }
