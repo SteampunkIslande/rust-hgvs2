@@ -391,7 +391,6 @@ impl HGVSName {
     }
 
     /// Parse a HGVS prefix (gene/transcript/chromosome).
-    ///
     /// Some examples of full hgvs names with transcript include:
     ///     NM_007294.3:c.2207A>C
     ///     NM_007294.3(BRCA1):c.2207A>C
@@ -472,7 +471,6 @@ impl HGVSName {
     }
 
     /// Parse a HGVS allele description.
-
     ///    Some examples include:
     ///      cDNA substitution: c.101A>C,
     ///      cDNA indel: c.3428delCinsTA, c.1000_1003delATG, c.1000_1001insATG
@@ -543,7 +541,6 @@ impl HGVSName {
     }
 
     ///Parse a HGVS cDNA name.
-    ///
     ///    Some examples include:
     ///      Substitution: 101A>C,
     ///      Indel: 3428delCinsTA, 1000_1003delATG, 1000_1001insATG
@@ -606,8 +603,7 @@ impl HGVSName {
         return Err(InvalidHGVSName::new(Some(details), "cDNA allele", "").into());
     }
 
-    ///Parse a HGVS protein name.
-    ///
+    /// Parse a HGVS protein name.
     ///    Some examples include:
     ///      No change: Glu1161=
     ///      Change: Glu1161Ser
@@ -676,7 +672,6 @@ impl HGVSName {
     }
 
     ///Parse a HGVS genomic name.
-    ///
     ///    Som examples include:
     ///      Substitution: 1000100A>T
     ///      Indel: 1000100_1000102delATG
@@ -777,7 +772,6 @@ impl HGVSName {
     }
 
     /// Generate HGVS trancript/gene prefix.
-    ///
     ///     Some examples of full hgvs names with transcript include:
     ///       NM_007294.3:c.2207A>C
     ///       NM_007294.3(BRCA1):c.2207A>C
@@ -848,7 +842,6 @@ impl HGVSName {
     }
 
     /// Generate HGVS cDNA allele.
-    ///
     ///     Some examples include:
     ///       Substitution: 101A>C,
     ///       Indel: 3428delCinsTA, 1000_1003delATG, 1000_1001insATG
@@ -857,7 +850,6 @@ impl HGVSName {
     }
 
     /// Generate HGVS protein name.
-    ///
     ///     Some examples include:
     ///       No change: Glu1161=
     ///       Change: Glu1161Ser
@@ -901,7 +893,6 @@ impl HGVSName {
     }
 
     /// Generate HGVS genomic allele.
-    ///
     ///     Som examples include:
     ///       Substitution: 1000100A>T
     ///       Indel: 1000100_1000102delATG

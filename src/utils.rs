@@ -19,7 +19,6 @@ pub fn read_refgene(infile: impl std::io::Read) -> impl Iterator<Item = GeneDesc
 
 /// GenePred extension format:
 ///     http://genome.ucsc.edu/FAQ/FAQformat.html#GenePredExt
-///
 ///     Column definitions:
 ///     0. string name;                 "Name of gene (usually transcript_id from GTF)"
 ///     1. string chrom;                "Chromosome name"

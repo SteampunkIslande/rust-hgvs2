@@ -6,3 +6,4 @@ pub mod genome;
 pub mod hgvs_name;
 
 pub mod transcript;
+pub mod variants;
