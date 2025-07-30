@@ -2,15 +2,15 @@ use std::io::BufRead;
 
 #[derive(Default)]
 pub struct GeneDescription {
-    chrom: String,
-    start: i64,
-    end: i64,
-    id: String,
-    strand: String,
-    cds_start: i64,
-    cds_end: i64,
-    gene_name: String,
-    exons: Vec<(i64, i64)>,
+    pub chrom: String,
+    pub start: i64,
+    pub end: i64,
+    pub id: String,
+    pub strand: String,
+    pub cds_start: i64,
+    pub cds_end: i64,
+    pub gene_name: String,
+    pub exons: Vec<(i64, i64)>,
 }
 
 pub fn read_refgene(infile: impl std::io::Read) -> impl Iterator<Item = GeneDescription> {

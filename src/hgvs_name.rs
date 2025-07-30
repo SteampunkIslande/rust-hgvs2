@@ -893,22 +893,31 @@ impl HGVSName {
     }
 
     /// Generate HGVS genomic allele.
-    ///     Som examples include:
+    ///     Some examples include:
     ///       Substitution: 1000100A>T
     ///       Indel: 1000100_1000102delATG
     fn format_genome(&self) -> String {
         format!("{}{}", self.format_coords(), self.format_dna_allele())
     }
 
-    fn get_raw_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
+    /// Return genomic coordinates
+    fn get_raw_coords(&self, transcript: Option<&Transcript>) -> Option<(String, i64, i64)> {
+        let transcript = transcript?;
+        match self.kind.as_ref() {
+            "c" | "n" => {
+                let chrom = transcript.tx_position.chrom.to_string();
+                // let start = t
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn get_ref_coords(&self, transcript: Option<&Transcript>) -> Option<(String, i64, i64)> {
         todo!()
     }
 
-    fn get_ref_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
-        todo!()
-    }
-
-    fn get_vcf_coords(&self, transcript: Option<&Transcript>) -> (String, i64, i64) {
+    fn get_vcf_coords(&self, transcript: Option<&Transcript>) -> Option<(String, i64, i64)> {
         todo!()
     }
 }

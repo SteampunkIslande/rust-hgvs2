@@ -1,70 +1,50 @@
-use std::collections::HashMap;
-use std::ops::Index;
-use std::ops::Range;
+use bio::io::fasta::IndexedReader;
+use std::path::Path;
 
-#[derive(Debug, Default)]
-struct Genome {}
+use thiserror;
 
-#[derive(Debug, Default)]
-struct ChromosomeSubset {
-    name: String,
-    genome: GenomeSubset,
+#[derive(thiserror::Error, Debug)]
+pub enum GenomeError {
+    #[error("Cannot read indexed fasta. Message: {0}")]
+    IndexedReaderError(String),
 }
 
-#[derive(Debug, Default)]
-struct GenomeSubset {
-    genome: Genome,
-    chrom: String,
-    start: i64,
-    end: i64,
-    seqid: String,
-    _chroms: HashMap<String, ChromosomeSubset>,
+pub struct Genome {
+    reader: IndexedReader<std::fs::File>,
 }
 
-impl Genome {}
+impl Genome {
+    pub fn new_from_file_path(file_path: &Path) -> Result<Self, GenomeError> {
+        Ok(Self {
+            reader: IndexedReader::from_file(&file_path)
+                .map_err(|e| GenomeError::IndexedReaderError(e.to_string()))?,
+        })
+    }
 
-impl Index<&str> for Genome {
-    type Output = Vec<u8>;
-
-    fn index(&self, _index: &str) -> &Self::Output {
-        todo!("Implement retrieval of chromosome sequence by name")
+    pub fn get(&mut self, seq_name: &str, start: u64, stop: u64) -> Option<Vec<u8>> {
+        self.reader.fetch(seq_name, start, stop).ok()?;
+        let mut seq = Vec::with_capacity((stop - start) as usize);
+        self.reader.read(&mut seq).ok()?;
+        Some(seq)
     }
 }
 
-impl ChromosomeSubset {
-    pub fn new(name: String, genome: GenomeSubset) -> Self {
-        Self { name, genome }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl Index<Range<i64>> for ChromosomeSubset {
-    type Output = [u8];
-
-    fn index(&self, index: Range<i64>) -> &Self::Output {
-        let (mut start, mut end) = (index.start, index.end);
-        start -= self.genome.start;
-        end -= self.genome.start;
-        &self.genome.genome[&self.genome.seqid][start as usize..end as usize]
-    }
-}
-
-impl GenomeSubset {
-    pub fn new(genome: Genome, chrom: String, start: i64, end: i64, seqid: String) -> Self {
-        Self {
-            genome,
-            chrom,
-            start,
-            end,
-            seqid,
-            ..Default::default()
-        }
-    }
-}
-
-impl Index<String> for GenomeSubset {
-    type Output = ChromosomeSubset;
-
-    fn index(&self, chrom: String) -> &Self::Output {
-        todo!()
+    #[test]
+    fn test_genome_get() {
+        let mut genome = Genome::new_from_file_path(&Path::new("tests/data/test.fasta")).unwrap();
+        assert_eq!(
+            genome.get("chr5", 0, 180).unwrap(),
+            concat!(
+                "CAAGTTTGCTGGGCTTTCGTCATCCTGTAGACAAGCTTCTTTCTCGGTCA",
+                "GGGTAATAACGTGGTGCGTGAACTGTACTTTTACTCACGTATGAAGCGCG",
+                "GGAGTCAGGGAAAGTGAAGGAGCGCAAAGCATCTGCCGCCAGAGCACAGC",
+                "ATCCGTACAGTAGGTCGCTACGACAGCAAG"
+            )
+            .as_bytes()
+        );
     }
 }
