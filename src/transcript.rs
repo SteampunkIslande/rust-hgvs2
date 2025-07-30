@@ -1,3 +1,5 @@
+use std::ops::Not;
+
 use crate::{cdna::CDNACoord, variants::Position};
 
 pub struct CDNAMatch {
@@ -33,6 +35,17 @@ impl Transcript {
         start_codon_transcript_pos: Option<u64>,
         stop_codon_transcript_pos: Option<u64>,
     ) -> Self {
+        // Ordered cdna_match
+        let cdna_match = match cdna_match {
+            Some(mut cdna_match) => {
+                cdna_match.sort_by_key(|k| k.tx_position.chrom_start);
+                if tx_position.is_forward_strand.not() {
+                    cdna_match.reverse();
+                }
+                cdna_match
+            }
+            None => Vec::new(),
+        };
         Self {
             name,
             version,
@@ -40,7 +53,7 @@ impl Transcript {
             tx_position,
             cds_position,
             is_default,
-            cdna_match: cdna_match.unwrap_or_default(),
+            cdna_match: cdna_match,
             start_codon_transcript_pos,
             stop_codon_transcript_pos,
         }
@@ -69,7 +82,7 @@ impl Transcript {
 
     /// Returns the unsorted cdna_match vector
     pub fn cdna_match(&self) -> &Vec<CDNAMatch> {
-        &self.cdna_match
+        todo!()
     }
 
     pub fn cdna_to_genomic_coord(&self, coord: CDNACoord) {

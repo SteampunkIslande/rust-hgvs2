@@ -20,8 +20,11 @@ impl Debug for Position {
 /// Shamelessly stolen from: https://github.com/natir/rust_template/blob/5d58df7b0375b07a1f09cbf8357026b7ffa7d7e9/src/lib.rs#L15C5-L21C2
 /// Returns the reverse complement of the input sequence
 ///
+/// ```rust
+/// use pyhgvs2::variants::revcomp;
 /// assert_eq!(revcomp("CGGTAA".as_bytes()), Vec::from("TTACCG"));
 /// assert_eq!(revcomp("cggtaa".as_bytes()), Vec::from("ttaccg"));
+/// ```
 pub fn revcomp(seq: &[u8]) -> Vec<u8> {
     // Complement the sequence
     seq.iter()
