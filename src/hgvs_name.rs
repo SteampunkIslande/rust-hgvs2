@@ -903,14 +903,23 @@ impl HGVSName {
     /// Return genomic coordinates
     fn get_raw_coords(&self, transcript: Option<&Transcript>) -> Option<(String, i64, i64)> {
         let transcript = transcript?;
-        match self.kind.as_ref() {
+        let (chrom, start, end) = match self.kind.as_ref() {
             "c" | "n" => {
                 let chrom = transcript.tx_position.chrom.to_string();
-                // let start = t
-                None
+                let mut start = transcript.cdna_to_genomic_coord(self.cdna_start.as_ref()?);
+                let mut end = transcript.cdna_to_genomic_coord(self.cdna_end.as_ref()?);
+                if transcript.tx_position.is_forward_strand.not() {
+                    (start, end) = (end, start);
+                }
+                if start > end {
+                    return None;
+                }
+                (chrom, start, end)
             }
-            _ => None,
-        }
+            "g" | "m" => (self.chrom.to_string(), self.start as u64, self.end as u64),
+            _ => return None,
+        };
+        Some((chrom, start as i64, end as i64))
     }
 
     fn get_ref_coords(&self, transcript: Option<&Transcript>) -> Option<(String, i64, i64)> {

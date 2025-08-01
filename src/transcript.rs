@@ -18,7 +18,7 @@ pub struct Transcript {
     pub tx_position: Position,
     pub cds_position: Position,
     pub is_default: bool,
-    cdna_match: Vec<CDNAMatch>,
+    pub cdna_match: Vec<CDNAMatch>,
     start_codon_transcript_pos: Option<u64>,
     stop_codon_transcript_pos: Option<u64>,
 }
@@ -31,21 +31,16 @@ impl Transcript {
         tx_position: Position,
         cds_position: Position,
         is_default: bool,
-        cdna_match: Option<Vec<CDNAMatch>>,
+        mut cdna_match: Vec<CDNAMatch>,
         start_codon_transcript_pos: Option<u64>,
         stop_codon_transcript_pos: Option<u64>,
     ) -> Self {
         // Ordered cdna_match
-        let cdna_match = match cdna_match {
-            Some(mut cdna_match) => {
-                cdna_match.sort_by_key(|k| k.tx_position.chrom_start);
-                if tx_position.is_forward_strand.not() {
-                    cdna_match.reverse();
-                }
-                cdna_match
-            }
-            None => Vec::new(),
-        };
+
+        cdna_match.sort_by_key(|k| k.tx_position.chrom_start);
+        if tx_position.is_forward_strand.not() {
+            cdna_match.reverse();
+        }
         Self {
             name,
             version,
@@ -80,12 +75,7 @@ impl Transcript {
         }
     }
 
-    /// Returns the unsorted cdna_match vector
-    pub fn cdna_match(&self) -> &Vec<CDNAMatch> {
-        todo!()
-    }
-
-    pub fn cdna_to_genomic_coord(&self, coord: CDNACoord) {
+    pub fn cdna_to_genomic_coord(&self, coord: &CDNACoord) -> u64 {
         todo!()
     }
 }
