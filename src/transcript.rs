@@ -1,16 +1,6 @@
-use std::ops::Not;
-
 use crate::{cdna::CDNACoord, variants::Position};
 
-pub struct CDNAMatch {
-    pub cdna_start: u64,
-    pub cdna_end: u64,
-    pub transcript: Transcript,
-    pub tx_position: Position,
-}
-
 /// A gene may have multiple transcripts with different combinations of exons.
-///     We need both exons and cdna_match as need to know exact exon boundaries to work out flanking
 pub struct Transcript {
     pub name: String,
     pub version: Option<i64>,
@@ -18,9 +8,6 @@ pub struct Transcript {
     pub tx_position: Position,
     pub cds_position: Position,
     pub is_default: bool,
-    pub cdna_match: Vec<CDNAMatch>,
-    start_codon_transcript_pos: Option<u64>,
-    stop_codon_transcript_pos: Option<u64>,
 }
 
 impl Transcript {
@@ -31,16 +18,7 @@ impl Transcript {
         tx_position: Position,
         cds_position: Position,
         is_default: bool,
-        mut cdna_match: Vec<CDNAMatch>,
-        start_codon_transcript_pos: Option<u64>,
-        stop_codon_transcript_pos: Option<u64>,
     ) -> Self {
-        // Ordered cdna_match
-
-        cdna_match.sort_by_key(|k| k.tx_position.chrom_start);
-        if tx_position.is_forward_strand.not() {
-            cdna_match.reverse();
-        }
         Self {
             name,
             version,
@@ -48,9 +26,6 @@ impl Transcript {
             tx_position,
             cds_position,
             is_default,
-            cdna_match: cdna_match,
-            start_codon_transcript_pos,
-            stop_codon_transcript_pos,
         }
     }
 

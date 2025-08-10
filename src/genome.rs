@@ -30,7 +30,54 @@ impl Genome {
 }
 
 #[cfg(test)]
+pub mod mock_genome {
+
+    use std::collections::HashMap;
+    use std::fs::File;
+    use std::io::{BufRead, BufReader, Cursor, Read};
+    use std::path::Path;
+
+    use rle_vec::RleVec;
+    /// Génome mock utilisant une structure d'intervalles pour les requêtes efficaces
+    pub struct MockGenome {
+        genome: HashMap<String, RleVec<u8>>,
+    }
+
+    impl MockGenome {
+        pub fn new_from_file_path(file_path: &Path) -> Self {
+            let genome = File::open(file_path).map(MockGenome::from_reader).unwrap();
+
+            Self { genome }
+        }
+
+        pub fn new_from_static_str(content: &'static str) -> Self {
+            let genome = MockGenome::from_reader(Cursor::new(content));
+            Self { genome }
+        }
+
+        pub fn from_reader(reader: impl Read) -> HashMap<String, RleVec<u8>> {
+            let mut genome: HashMap<String, RleVec<u8>> = HashMap::new();
+            let reader = BufReader::new(reader);
+
+            for line in reader.lines() {
+                if let Ok(line) = line {
+                    let parts: Vec<&str> = line.trim().split('\t').collect();
+                    // let chrom =
+                }
+            }
+            genome
+        }
+
+        pub fn get(&mut self, seq_name: &str, start: u64, stop: u64) -> Option<Vec<u8>> {
+            // self.genome.get(seq_name)?
+            todo!()
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
+    use super::mock_genome::MockGenome;
     use super::*;
 
     #[test]
@@ -45,6 +92,31 @@ mod tests {
                 "ATCCGTACAGTAGGTCGCTACGACAGCAAG"
             )
             .as_bytes()
+        );
+    }
+
+    #[test]
+    fn test_genome_get_mock() {
+        let mut genome = MockGenome::new_from_file_path(&Path::new("tests/data/test_hgvs.genome"));
+        assert_eq!(
+            &genome.get("chr1", 5933334, 5933375).unwrap(),
+            b"CGCTGGACTTCCAAGGTGACACGGCGTCCATGCCCTTCTCG"
+        );
+        assert_eq!(
+            &genome.get("chr1", 5933334, 5933374).unwrap(),
+            b"CGCTGGACTTCCAAGGTGACACGGCGTCCATGCCCTTCTC"
+        );
+        assert_eq!(&genome.get("chr1", 2337999, 2338000).unwrap(), b"C");
+    }
+
+    #[test]
+    fn test_genome_get_mock_from_static_str() {
+        let mut genome = MockGenome::new_from_static_str(
+            "chr1\t5927848\t5927889\tGAGCTCCGGGTGATAGAAGCGGAAGACCTGGTCCACCACGT",
+        );
+        assert_eq!(
+            &genome.get("chr1", 5927848, 5927889).unwrap(),
+            b"GAGCTCCGGGTGATAGAAGCGGAAGACCTGGTCCACCACGT"
         );
     }
 }
