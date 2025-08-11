@@ -46,7 +46,6 @@ pub mod mock_genome {
     impl MockGenome {
         pub fn new_from_file_path(file_path: &Path) -> Self {
             let genome = File::open(file_path).map(MockGenome::from_reader).unwrap();
-
             Self { genome }
         }
 
@@ -62,15 +61,29 @@ pub mod mock_genome {
             for line in reader.lines() {
                 if let Ok(line) = line {
                     let parts: Vec<&str> = line.trim().split('\t').collect();
-                    // let chrom =
+                    let chrom = parts[0];
+                    let start: usize = parts[1].parse().unwrap();
+                    let end: usize = parts[2].parse().unwrap();
+                    let seq = parts[3];
+                    let mock_chr = genome.entry(chrom.to_string()).or_insert(RleVec::new());
+
+                    mock_chr.push_n(end, b'N');
+                    for (i, c) in seq.chars().map(|e| e as u8).enumerate() {
+                        mock_chr.insert(start + i, c);
+                    }
                 }
             }
             genome
         }
 
         pub fn get(&mut self, seq_name: &str, start: u64, stop: u64) -> Option<Vec<u8>> {
-            // self.genome.get(seq_name)?
-            todo!()
+            let v = self.genome.get(seq_name)?;
+            let mut res: Vec<u8> = Vec::with_capacity((stop - start) as usize);
+            for i in start..stop {
+                res.push(v[i as usize]);
+            }
+
+            Some(res)
         }
     }
 }
