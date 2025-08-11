@@ -205,6 +205,9 @@ pub mod hgvs_regex {
             r"^(?P<start>(?P<start_coord_prefix>|-|\*)(?P<start_coord>\d+)((?P<start_offset_prefix>-|\+)(?P<start_offset>\d+))?)_(?P<end>(?P<end_coord_prefix>|-|\*)(?P<end_coord>\d+)((?P<end_offset_prefix>-|\+)(?P<end_offset>\d+))?)(?P<mutation_type>dup)$"
         ),
         regex!(
+            r"^(?P<start>(?P<start_coord_prefix>|-|\*)(?P<start_coord>\d+)((?P<start_offset_prefix>-|\+)(?P<start_offset>\d+))?)_(?P<end>(?P<end_coord_prefix>|-|\*)(?P<end_coord>\d+)((?P<end_offset_prefix>-|\+)(?P<end_offset>\d+))?)(?P<mutation_type>inv)$"
+        ),
+        regex!(
             r"^(?P<delins>(?P<start>(?P<start_coord_prefix>|-|\*)(?P<start_coord>\d+)((?P<start_offset_prefix>-|\+)(?P<start_offset>\d+))?)del(?P<ref>[acgtbdhkmnrsvwyACGTBDHKMNRSVWY]+|\d+)ins(?P<alt>[acgtbdhkmnrsvwyACGTBDHKMNRSVWY]+|\d+))$"
         ),
         regex!(
@@ -262,6 +265,7 @@ pub mod hgvs_regex {
         ),
         regex!(r"^(?P<start>\d+)_(?P<end>\d+)(?P<mutation_type>del)$"),
         regex!(r"^(?P<start>\d+)_(?P<end>\d+)(?P<mutation_type>dup)$"),
+        regex!(r"^(?P<start>\d+)_(?P<end>\d+)(?P<mutation_type>inv)$"),
         regex!(
             r"^(?P<delins>(?P<start>\d+)del(?P<ref>[acgtbdhkmnrsvwyACGTBDHKMNRSVWY]+|\d+)ins(?P<alt>[acgtbdhkmnrsvwyACGTBDHKMNRSVWY]+|\d+))$"
         ),
